@@ -654,22 +654,28 @@ async function registerSocialWorker(){
   const password2=document.getElementById('regPassword2').value;
 
   if(!name||!position||!email||!program||!password||!password2){
-    toast('Please complete all registration fields'); return;
+    toast('Please complete all registration fields');
+    return;
   }
-  if(password.length<8){toast('Password must be at least 8 characters');return}
-  if(password!==password2){toast('Passwords do not match');return}
+  if(password.length<8){
+    toast('Password must be at least 8 characters');
+    return;
+  }
+  if(password!==password2){
+    toast('Passwords do not match');
+    return;
+  }
 
-  const requestedAccess = program==='CAR_CICL' ? ['CAR','CICL'] : [program];
+  const requestedAccess=program==='CAR_CICL'?['CAR','CICL']:[program];
   const btn=document.querySelector('#registerScreen .loginBtn');
-  if(btn){btn.disabled=true;btn.textContent='Creating account...'}
+
+  if(btn){
+    btn.disabled=true;
+    btn.textContent='Submitting...';
+  }
 
   try{
-    /*
-      Create the Supabase Auth account first.  The metadata is retained so the
-      database trigger can create the pending profile when it is installed.
-      If the project has email confirmation disabled, the code below also
-      creates/repairs the profile directly after sign-up.
-    */
+    /* 1. Create the Supabase Auth account. */
     const {data,error}=await supabaseClient.auth.signUp({
       email,
       password,
@@ -686,69 +692,80 @@ async function registerSocialWorker(){
 
     if(error){
       const msg=(error.message||'').toLowerCase();
+
       if(msg.includes('already registered')||msg.includes('already exists')){
         toast('This email is already registered. Use Login or Forgot Password.');
-      }else if(msg.includes('database error saving new user')||msg.includes('trigger')){
-        toast('Registration is blocked by the Supabase user-profile trigger. Please run the CSWDO profile repair SQL first.');
-        console.error('SUPABASE SIGN-UP/TRIGGER ERROR:',error);
       }else{
-        toast(error.message || 'Registration failed.');
+        toast(error.message||'Registration failed.');
       }
       return;
     }
 
+    const user=data?.user;
+
+    if(!user?.id){
+      toast('Account was created, but the user ID could not be obtained.');
+      return;
+    }
+
     /*
-      With email confirmation OFF, Supabase returns a session.  Upsert the
-      profile so a missing/broken profile trigger cannot leave an orphaned
-      Auth user.  If RLS blocks this, the exact database error is displayed.
-    */
-    if(data?.user){
-      const profilePayload={
-        id:data.user.id,
-        full_name:name,
-        position_title:position,
-        role:'social_worker',
-        program_access:[],
-        requested_program:program,
-        requested_access:requestedAccess,
-        approval_status:'pending',
-        is_active:false
-      };
+     * 2. Explicitly create/update the CSWDO profile as PENDING.
+     * This no longer depends on the Auth trigger.
+     */
+    const {data:registrationResult,error:registrationError}=
+      await supabaseClient.rpc('submit_social_worker_registration',{
+        p_user_id:user.id,
+        p_full_name:name,
+        p_position_title:position,
+        p_requested_program:program,
+        p_requested_access:requestedAccess
+      });
 
-      if(data.session){
-        const {error:profileError}=await supabaseClient
-          .from('profiles')
-          .upsert(profilePayload,{onConflict:'id'});
+    if(registrationError){
+      console.error(
+        'Social Worker profile creation error:',
+        registrationError.message
+      );
 
-        if(profileError){
-          console.error('PROFILE CREATION ERROR:',profileError);
-          await supabaseClient.auth.signOut();
-          toast('Auth account was created, but the CSWDO profile could not be created: '+profileError.message);
-          return;
-        }
-
+      if(data?.session){
         await supabaseClient.auth.signOut();
       }
+
+      toast(
+        'Account was created, but the registration could not be submitted: '+
+        registrationError.message
+      );
+      return;
     }
+
+    /* 3. Do not leave the new worker logged in before approval. */
+    if(data?.session){
+      await supabaseClient.auth.signOut();
+    }
+
+    /* 4. Clear the registration form. */
+    ['regName','regPosition','regEmail','regProgram','regPassword','regPassword2']
+      .forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.value='';
+      });
 
     closeRegistration();
-    ['regName','regPosition','regEmail','regProgram','regPassword','regPassword2'].forEach(id=>{
-      const el=document.getElementById(id); if(el) el.value='';
-    });
 
-    if(data?.session){
-      toast('Registration submitted. Your account is pending Admin approval.');
-    }else{
-      toast('Registration submitted. If email confirmation is enabled, confirm your email first. Your account is pending Admin approval.');
-    }
+    toast('Registration submitted. Your account is now pending Admin approval.');
+
+    console.log('Social Worker registration:',registrationResult);
+
   }catch(err){
-    console.error('REGISTRATION ERROR:',err);
-    toast(err?.message || 'Registration failed.');
+    console.error('Social Worker registration error:',err);
+    toast(err?.message||'Registration failed.');
   }finally{
-    if(btn){btn.disabled=false;btn.textContent='Submit Registration'}
+    if(btn){
+      btn.disabled=false;
+      btn.textContent='Submit Registration';
+    }
   }
 }
-
 
 async function openAdminResetPassword(){
   if(!currentProfile || currentProfile.role!=='admin'){toast('Admin access required');return}
