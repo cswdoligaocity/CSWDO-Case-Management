@@ -100,6 +100,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLI
   auth: { autoRefreshToken:true, persistSession:true, detectSessionInUrl:true }
 });
 let currentProfile = null;
+const ADMIN_RESET_FUNCTION = 'admin-reset-password';
 </script>
 </head>
 <body>
@@ -115,7 +116,7 @@ let currentProfile = null;
     <p>City Social Welfare and Development Office</p>
     <div class="field"><label>Email</label><input id="loginUser" type="email" autocomplete="username" placeholder="Enter your official email"></div>
     <div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="Enter password"></div>
-    <div class="passwordActions"><span></span><button class="linkBtn" onclick="showForgotPassword()">Forgot password?</button></div>
+    <div class="passwordActions"><span></span><button class="linkBtn" onclick="showForgotPassword()">Forgot password? Contact Admin</button></div>
     <button class="btn btnPrimary loginBtn" onclick="login()">Sign In</button>
     <div class="demoNote">Secure mode: sign in with your official Supabase Auth email and password.</div>
     <button class="selfRegLink" onclick="showRegistration()">Create Social Worker Account</button>
@@ -179,7 +180,7 @@ let currentProfile = null;
   <div class="loginBox">
     <div class="loginLogo" style="margin-bottom:16px">?</div>
     <h1>Reset Password</h1>
-    <p>Enter your registered email address. We will send a secure password-reset link.</p>
+    <p>Password resets are handled by the CSWDO Administrator. Contact the Administrator to receive a temporary password.</p>
     <div class="field"><label>Email</label><input id="resetEmail" type="email" placeholder="Enter your official email"></div>
     <button class="btn btnPrimary loginBtn" onclick="sendResetEmail()">Send Reset Link</button>
     <button class="linkBtn" style="display:block;margin:14px auto 0" onclick="closeForgotPassword()">Back to Login</button>
@@ -373,18 +374,23 @@ let currentProfile = null;
 
 
 <div id="users" class="page">
-  <div class="hero"><div><h1>Users & Roles</h1><p>Manage authorized CSWDO accounts and program assignments.</p></div><button class="btn btnPrimary" onclick="toast('New user form')">＋ Add User</button></div>
-  <div class="notice"><b>Production rule:</b> Each person will have an individual account. Program access, case access, and document access will be enforced by secure database policies—not only by the HTML interface.</div>
+  <div class="hero">
+    <div><h1>Users & Roles</h1><p>Manage authorized CSWDO accounts, registrations, and program assignments.</p></div>
+    <button class="btn btnLight" onclick="loadPendingRegistrationsUI()">↻ Refresh</button>
+  </div>
+  <div class="notice"><b>Production rule:</b> Social Worker registrations remain pending until Admin approval. Irene, as CSWD Officer, is view-only and cannot approve users.</div>
+
   <div class="card">
-    <div class="tableWrap"><table class="table userTable">
-      <thead><tr><th>User</th><th>Position</th><th>Program Access</th><th>Status</th><th>Case Reassignment</th><th>Action</th></tr></thead>
-      <tbody>
-        <tr><td><b>ERNESTINA CALACDAY, RSW</b></td><td>Social Welfare Officer II</td><td><span class="badge vawc">VAWC</span></td><td><span class="statusOnline">● Active</span></td><td>Own cases only</td><td><button class="btn btnLight" onclick="toast('Edit user')">Edit</button></td></tr>
-        <tr><td><b>JESELA TOMINIO, RSW, MSSW</b></td><td>Social Welfare Officer III</td><td><span class="badge cnsp">CNSP</span></td><td><span class="statusOnline">● Active</span></td><td>Own cases only</td><td><button class="btn btnLight" onclick="toast('Edit user')">Edit</button></td></tr>
-        <tr><td><b>JUDITHA WANASEN, RSW, MPA</b></td><td>Social Welfare Officer II</td><td><span class="badge car">CAR</span> <span class="badge cicl">CICL</span></td><td><span class="statusOnline">● Active</span></td><td>Own cases only</td><td><button class="btn btnLight" onclick="toast('Edit user')">Edit</button></td></tr>
-        <tr><td><b>IRENE BARBERO-RACHO, RSW, MSSW, DPM</b></td><td>CSWD Officer</td><td><span class="badge followB">VIEW ONLY</span></td><td><span class="statusOnline">● Active</span></td><td>All authorized cases</td><td><button class="btn btnLight" onclick="toast('Edit user')">Edit</button></td></tr>
-      </tbody>
-    </table></div>
+    <div class="cardHead"><div><h3>Pending Social Worker Registrations</h3><span class="muted">Review requested program access before activation.</span></div><span id="pendingCountBadge" class="pendingBadge">Loading…</span></div>
+    <div id="pendingRegistrationsList" class="tableWrap"><div class="muted" style="padding:16px">Loading…</div></div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <div class="cardHead">
+      <div><h3>Authorized Users</h3><span class="muted">Admin can issue a temporary password. The user must change it after login.</span></div>
+      <button class="btn btnLight" onclick="openAdminResetPassword()">🔑 Reset User Password</button>
+    </div>
+    <div id="authorizedUsersList" class="tableWrap"><div class="muted" style="padding:16px">Loading authorized users…</div></div>
   </div>
 </div>
 
@@ -404,7 +410,7 @@ let currentProfile = null;
   </div>
   <div class="card" style="margin-top:18px">
     <div class="sectionTitle">Security</div>
-    <p class="muted" style="margin-top:-4px;margin-bottom:12px">Each user can change their own password or use the password-reset email if they forget it. The CSWD Officer account is case-view only.</p>
+    <p class="muted" style="margin-top:-4px;margin-bottom:12px">Each user can change their own password. If a password is forgotten, the CSWDO Administrator can issue a temporary password. The CSWD Officer account is case-view only.</p>
     <button class="btn btnLight" onclick="showChangePassword()">Change Password</button>
   </div>
 </div>
@@ -516,6 +522,22 @@ let currentProfile = null;
 </div>
 
 
+
+<div id="adminResetPasswordModal" class="modalOverlay" style="display:none">
+  <div class="loginBox" style="max-width:520px">
+    <h1 style="text-align:left;margin-top:0">Admin Password Reset</h1>
+    <p style="text-align:left">Set a temporary password for an authorized CSWDO user. The user will be required to change it after signing in.</p>
+    <div class="field"><label>User</label><select id="adminResetUser"></select></div>
+    <div class="field"><label>Temporary Password</label><input id="adminTempPassword" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters"></div>
+    <div class="field"><label>Confirm Temporary Password</label><input id="adminTempPassword2" type="password" minlength="8" autocomplete="new-password" placeholder="Repeat temporary password"></div>
+    <div class="notice" style="margin-top:10px"><b>Security:</b> The password is handled by a protected Supabase Edge Function. No secret/service-role key is stored in this HTML.</div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+      <button class="btn btnLight" onclick="closeAdminResetPassword()">Cancel</button>
+      <button class="btn btnPrimary" onclick="adminResetPassword()">Set Temporary Password</button>
+    </div>
+  </div>
+</div>
+
 <div id="changePasswordModal" class="loginScreen" style="display:none;background:rgba(17,24,45,.58);z-index:115">
   <div class="loginBox">
     <h1 style="text-align:left;margin-top:0">Change Password</h1>
@@ -621,6 +643,86 @@ async function registerSocialWorker(){
   }
 }
 
+
+async function openAdminResetPassword(){
+  if(!currentProfile || currentProfile.role!=='admin'){toast('Admin access required');return}
+  const modal=document.getElementById('adminResetPasswordModal');
+  const select=document.getElementById('adminResetUser');
+  modal.style.display='grid';
+  select.innerHTML='<option>Loading users…</option>';
+  document.getElementById('adminTempPassword').value='';
+  document.getElementById('adminTempPassword2').value='';
+  const {data,error}=await supabaseClient.from('profiles')
+    .select('id,full_name,position_title,role,program_access,is_active,approval_status')
+    .order('full_name',{ascending:true});
+  if(error){toast(error.message);closeAdminResetPassword();return}
+  select.innerHTML='';
+  (data||[]).forEach(u=>{
+    const o=document.createElement('option');
+    o.value=u.id;
+    o.textContent=`${u.full_name} — ${(u.program_access||[]).join(' + ') || (u.role==='cswd_officer'?'VIEW ONLY':'PENDING')}`;
+    select.appendChild(o);
+  });
+}
+function closeAdminResetPassword(){document.getElementById('adminResetPasswordModal').style.display='none'}
+async function openAdminResetPasswordFor(id){
+  await openAdminResetPassword();
+  const s=document.getElementById('adminResetUser');
+  if([...s.options].some(o=>o.value===id)) s.value=id;
+}
+async function adminResetPassword(){
+  if(!currentProfile || currentProfile.role!=='admin'){toast('Admin access required');return}
+  const userId=document.getElementById('adminResetUser').value;
+  const p=document.getElementById('adminTempPassword').value;
+  const c=document.getElementById('adminTempPassword2').value;
+  if(!userId){toast('Select a user');return}
+  if(p.length<8){toast('Temporary password must be at least 8 characters');return}
+  if(p!==c){toast('Temporary passwords do not match');return}
+  const {data,error}=await supabaseClient.functions.invoke(ADMIN_RESET_FUNCTION,{body:{target_user_id:userId,temporary_password:p}});
+  if(error){toast(error.message||'Password reset failed');return}
+  if(data?.error){toast(data.error);return}
+  closeAdminResetPassword();
+  toast('Temporary password set. User must change it after login.');
+}
+async function loadAuthorizedUsersUI(){
+  if(!currentProfile || currentProfile.role!=='admin') return;
+  const box=document.getElementById('authorizedUsersList'); if(!box)return;
+  const {data,error}=await supabaseClient.from('profiles')
+    .select('id,full_name,position_title,role,program_access,is_active,approval_status')
+    .order('full_name',{ascending:true});
+  if(error){box.innerHTML='<div class="muted" style="padding:16px">'+escapeHtml(error.message)+'</div>';return}
+  box.innerHTML=`<table class="table"><thead><tr><th>User</th><th>Position</th><th>Role</th><th>Program</th><th>Status</th><th>Action</th></tr></thead><tbody>${
+    (data||[]).map(u=>{
+      const access=(u.program_access||[]).join(' + ')||'—';
+      const status=u.approval_status==='pending'?'Pending':(u.is_active?'Active':'Inactive');
+      return `<tr><td><b>${escapeHtml(u.full_name||'')}</b></td><td>${escapeHtml(u.position_title||'')}</td><td>${escapeHtml(u.role||'')}</td><td>${escapeHtml(access)}</td><td>${status}</td><td><button class="btn btnLight" onclick="openAdminResetPasswordFor('${u.id}')">Reset Password</button></td></tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+async function loadPendingRegistrationsUI(){
+  if(!currentProfile || currentProfile.role!=='admin'){toast('Admin access required');return}
+  const box=document.getElementById('pendingRegistrationsList');
+  const badge=document.getElementById('pendingCountBadge');
+  if(!box)return;
+  const rows=await loadPendingRegistrations();
+  if(badge)badge.textContent=`${rows.length} Pending`;
+  if(!rows.length){box.innerHTML='<div class="muted" style="padding:16px">No pending Social Worker registrations.</div>';await loadAuthorizedUsersUI();return}
+  box.innerHTML=`<table class="table"><thead><tr><th>Name</th><th>Position</th><th>Requested</th><th>Date</th><th>Action</th></tr></thead><tbody>${
+    rows.map(r=>`<tr><td><b>${escapeHtml(r.full_name||'')}</b></td><td>${escapeHtml(r.position_title||'')}</td><td>${escapeHtml(r.requested_program||'')}</td><td>${new Date(r.created_at).toLocaleString()}</td><td><button class="btn btnPrimary" onclick="promptApprove('${r.id}')">Approve</button> <button class="btn btnLight" onclick="rejectSocialWorker('${r.id}')">Reject</button></td></tr>`).join('')
+  }</tbody></table>`;
+  await loadAuthorizedUsersUI();
+}
+async function promptApprove(id){
+  const raw=prompt('Final program access: VAWC, CNSP, CAR, CICL, or CAR+CICL','VAWC');
+  if(!raw)return;
+  const access=raw.toUpperCase().replace(/\s+/g,'').split('+').filter(Boolean);
+  const allowed=[['VAWC'],['CNSP'],['CAR'],['CICL'],['CAR','CICL']];
+  const ok=allowed.some(a=>a.length===access.length&&a.every(x=>access.includes(x)));
+  if(!ok){toast('Invalid program access.');return}
+  await approveSocialWorker(id,access);
+  await loadPendingRegistrationsUI();
+}
+
 async function loadPendingRegistrations(){
   if(!currentProfile || currentProfile.role!=='admin') return [];
   const {data,error}=await supabaseClient.from('profiles')
@@ -655,12 +757,8 @@ async function rejectSocialWorker(profileId){
 function showForgotPassword(){document.getElementById('forgotPassword').style.display='grid'}
 function closeForgotPassword(){document.getElementById('forgotPassword').style.display='none'}
 async function sendResetEmail(){
-  const email=document.getElementById('resetEmail').value.trim();
-  if(!email){toast('Enter your email address');return}
-  const {error}=await supabaseClient.auth.resetPasswordForEmail(email);
-  if(error){toast(error.message);return}
-  toast('Password reset link sent. Check your email.');
   closeForgotPassword();
+  toast('Please contact the CSWDO Administrator for a temporary password.');
 }
 function showChangePassword(){document.getElementById('changePasswordModal').style.display='grid'}
 function closeChangePassword(){document.getElementById('changePasswordModal').style.display='none'}
@@ -669,9 +767,11 @@ async function changePassword(){
   const c=document.getElementById('confirmPassword').value;
   if(p.length<8){toast('Password must be at least 8 characters');return}
   if(p!==c){toast('Passwords do not match');return}
-  const {error}=await supabaseClient.auth.updateUser({password:p});
+  const {error}=await supabaseClient.auth.updateUser({password:p,user_metadata:{force_password_change:false}});
   if(error){toast(error.message);return}
-  closeChangePassword();document.getElementById('newPassword').value='';document.getElementById('confirmPassword').value='';
+  closeChangePassword();
+  document.getElementById('newPassword').value='';
+  document.getElementById('confirmPassword').value='';
   toast('Password changed successfully');
 }
 async function editCase(caseNumber){
@@ -711,10 +811,20 @@ async function loadAuthenticatedUser(){
   if(error){toast('Unable to load your CSWDO profile: '+error.message);return}
   if(!profile){toast('Your Auth account is not linked to a CSWDO profile.');await supabaseClient.auth.signOut();return}
   if(!profile.is_active){toast('This account is disabled.');await supabaseClient.auth.signOut();return}
+  if(profile.approval_status && profile.approval_status!=='approved' && profile.role==='social_worker'){
+    toast('Your Social Worker account is pending Admin approval.');
+    await supabaseClient.auth.signOut();
+    return;
+  }
   currentProfile=profile;
   document.getElementById('login').style.display='none';
   document.getElementById('app').style.display='flex';
   updateRoleInterface(profile);
+  if(user.user_metadata?.force_password_change===true){
+    setTimeout(()=>showChangePassword(),250);
+    toast('Your temporary password must be changed before continuing.');
+  }
+  if(profile.role==='admin') setTimeout(loadPendingRegistrationsUI,150);
 }
 function updateRoleInterface(profile){
   const role=profile.role;
@@ -797,6 +907,7 @@ function showPage(id,btn){
   const names={dashboard:'Dashboard',cases:'My Cases',allcases:'All Cases',newcase:'New Case',followups:'Follow-ups',documents:'Documents',reports:'Reports & Statistics',audit:'Audit Log',users:'Users & Roles',settings:'Settings',caseDetail:'Case Profile'};
   document.getElementById('pageName').textContent=names[id]||'Dashboard';
   document.getElementById('sidebar').classList.remove('open'); window.scrollTo(0,0);
+  if(id==='users' && currentProfile?.role==='admin') setTimeout(loadPendingRegistrationsUI,50);
 }
 function openCase(){showPage('caseDetail')}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._toast);window._toast=setTimeout(()=>t.style.display='none',2500)}
