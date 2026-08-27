@@ -96,7 +96,6 @@ button,input,select,textarea{font:inherit} button{cursor:pointer}
 <script>
 const SUPABASE_URL = 'https://ubnkukexiroyocunmfos.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_qR6-m7IXHX0HpyWuw4yJSw_YyNnxElT';
-const CSWDO_APP_URL = 'https://cswdoligaocity.github.io/CSWDO-Case-Management/';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: { autoRefreshToken:true, persistSession:true, detectSessionInUrl:true }
 });
@@ -655,33 +654,22 @@ async function registerSocialWorker(){
   const password2=document.getElementById('regPassword2').value;
 
   if(!name||!position||!email||!program||!password||!password2){
-    toast('Please complete all registration fields');
-    return;
+    toast('Please complete all registration fields'); return;
   }
-  if(password.length<8){
-    toast('Password must be at least 8 characters');
-    return;
-  }
-  if(password!==password2){
-    toast('Passwords do not match');
-    return;
-  }
+  if(password.length<8){toast('Password must be at least 8 characters');return}
+  if(password!==password2){toast('Passwords do not match');return}
 
-  const requestedAccess=program==='CAR_CICL'?['CAR','CICL']:[program];
+  const requestedAccess = program==='CAR_CICL' ? ['CAR','CICL'] : [program];
   const btn=document.querySelector('#registerScreen .loginBtn');
-
-  if(btn){
-    btn.disabled=true;
-    btn.textContent='Submitting...';
-  }
+  if(btn){btn.disabled=true;btn.textContent='Submitting...'}
 
   try{
-    /* 1. Create the Supabase Auth account. */
+    /* The database trigger creates the PENDING profile from auth metadata.
+       This works whether Supabase requires email confirmation or not. */
     const {data,error}=await supabaseClient.auth.signUp({
       email,
       password,
       options:{
-        emailRedirectTo: CSWDO_APP_URL,
         data:{
           full_name:name,
           position_title:position,
@@ -694,80 +682,32 @@ async function registerSocialWorker(){
 
     if(error){
       const msg=(error.message||'').toLowerCase();
-
       if(msg.includes('already registered')||msg.includes('already exists')){
         toast('This email is already registered. Use Login or Forgot Password.');
       }else{
-        toast(error.message||'Registration failed.');
+        toast(error.message || 'Registration failed.');
       }
       return;
     }
-
-    const user=data?.user;
-
-    if(!user?.id){
-      toast('Account was created, but the user ID could not be obtained.');
-      return;
-    }
-
-    /*
-     * 2. Explicitly create/update the CSWDO profile as PENDING.
-     * This no longer depends on the Auth trigger.
-     */
-    const {data:registrationResult,error:registrationError}=
-      await supabaseClient.rpc('submit_social_worker_registration',{
-        p_user_id:user.id,
-        p_full_name:name,
-        p_position_title:position,
-        p_requested_program:program,
-        p_requested_access:requestedAccess
-      });
-
-    if(registrationError){
-      console.error(
-        'Social Worker profile creation error:',
-        registrationError.message
-      );
-
-      if(data?.session){
-        await supabaseClient.auth.signOut();
-      }
-
-      toast(
-        'Account was created, but the registration could not be submitted: '+
-        registrationError.message
-      );
-      return;
-    }
-
-    /* 3. Do not leave the new worker logged in before approval. */
-    if(data?.session){
-      await supabaseClient.auth.signOut();
-    }
-
-    /* 4. Clear the registration form. */
-    ['regName','regPosition','regEmail','regProgram','regPassword','regPassword2']
-      .forEach(id=>{
-        const el=document.getElementById(id);
-        if(el) el.value='';
-      });
 
     closeRegistration();
+    ['regName','regPosition','regEmail','regProgram','regPassword','regPassword2'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.value='';
+    });
 
-    toast('Registration submitted. Your account is now pending Admin approval.');
-
-    console.log('Social Worker registration:',registrationResult);
-
-  }catch(err){
-    console.error('Social Worker registration error:',err);
-    toast(err?.message||'Registration failed.');
-  }finally{
-    if(btn){
-      btn.disabled=false;
-      btn.textContent='Submit Registration';
+    if(data.session){
+      await supabaseClient.auth.signOut();
+      toast('Registration submitted. Your account is pending Admin approval.');
+    }else{
+      toast('Registration submitted. Check your email if confirmation is required. Your account is pending Admin approval.');
     }
+  }catch(err){
+    toast(err?.message || 'Registration failed.');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Submit Registration'}
   }
 }
+
 
 async function openAdminResetPassword(){
   if(!currentProfile || currentProfile.role!=='admin'){toast('Admin access required');return}
@@ -1015,14 +955,6 @@ function updateRoleInterface(profile){
 
   window.currentRole=role;
 }
-/* Explicit GitHub Pages authentication callback initialization. */
-(async function initAuthCallback(){
-  try{
-    const {data:{session}} = await supabaseClient.auth.getSession();
-    if(session) setTimeout(loadAuthenticatedUser,0);
-  }catch(err){ console.warn('Auth session initialization:', err); }
-})();
-
 supabaseClient.auth.onAuthStateChange((event,session)=>{
   if(session) setTimeout(loadAuthenticatedUser,0);
 });
@@ -1124,6 +1056,58 @@ function applyStrictRoleUI(profile){
     if(el.classList.contains('userPill')) return;
   });
 }
+</script>
+
+
+<script>
+/*
+ * CSWDO CASE SAVE SAFETY PATCH
+ * Uses the existing form fields and Supabase client.
+ * This helper is intentionally separate from the existing UI.
+ */
+window.saveCSWDOCaseToDatabase = async function(payload){
+  if(!window.supabaseClient) throw new Error('Supabase client is not available.');
+
+  const p = payload || {};
+
+  // Normalize case type to the database enum values.
+  let caseType = p.case_type || p.caseType || p.program || '';
+  if(caseType === 'CAR_CICL') caseType = 'CAR';
+
+  const allowed = ['VAWC','CNSP','CAR','CICL'];
+  if(!allowed.includes(caseType)){
+    throw new Error('Please select a valid case type: VAWC, CNSP, CAR, or CICL.');
+  }
+
+  const record = {
+    case_type: caseType,
+    client_name: (p.client_name || p.clientName || '').trim(),
+    barangay: (p.barangay || '').trim(),
+    case_year: Number(p.case_year || p.caseYear || new Date().getFullYear()),
+    assigned_social_worker_id: p.assigned_social_worker_id || p.assignedSocialWorkerId || null
+  };
+
+  if(!record.client_name){
+    throw new Error('Client name is required.');
+  }
+
+  if(!record.barangay){
+    throw new Error('Barangay is required.');
+  }
+
+  if(!Number.isInteger(record.case_year) || record.case_year < 1900 || record.case_year > 2100){
+    throw new Error('Please enter a valid case year.');
+  }
+
+  const {data,error}=await window.supabaseClient
+    .from('cases')
+    .insert(record)
+    .select()
+    .single();
+
+  if(error) throw error;
+  return data;
+};
 </script>
 
 </body>
