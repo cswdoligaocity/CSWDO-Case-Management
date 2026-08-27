@@ -285,7 +285,7 @@ const ADMIN_RESET_FUNCTION = 'admin-reset-password';
       <input class="search" placeholder="🔍 Search case number, client code, barangay...">
       <select class="select"><option>All Case Types</option><option>VAWC</option><option>CNSP</option><option>CAR</option><option>CICL</option></select>
       <select class="select"><option>All Status</option><option>Active</option><option>For Follow-up</option><option>Referred</option><option>Closed</option></select>
-      <select class="select"><option>Case Year: All</option><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2021</option></select>
+      <select class="select" id="caseYearFilter"><option>Case Year: All</option><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2021</option><option>2020</option><option>2019</option><option>2018</option><option>2017</option><option>2016</option><option>2015</option><option>2014</option><option>2013</option><option>2012</option><option>2011</option><option>2010</option><option>2009</option><option>2008</option><option>2007</option><option>2006</option><option>2005</option><option>2004</option><option>2003</option><option>2002</option><option>2001</option><option>2000</option></select>
     </div>
     <div class="tableWrap"><table class="table">
       <thead><tr><th>Case ID</th><th>Type</th><th>Case Year</th><th>Date Received</th><th>Assigned SW</th><th>Barangay</th><th>Status</th><th>Action</th></tr></thead>
@@ -310,7 +310,72 @@ const ADMIN_RESET_FUNCTION = 'admin-reset-password';
       <div class="field"><label>Date Case Was Received</label><input type="date" id="dateReceived" value="2026-08-27"></div>
       <div class="field"><label>Date of Incident / Referral</label><input type="date" id="dateIncident"></div>
       <div class="field"><label>Source of Referral</label><select><option>Barangay VAW Desk</option><option>Police</option><option>Hospital</option><option>School</option><option>Self Referral</option><option>Other Agency</option></select></div>
-      <div class="field"><label>Barangay</label><select><option>Select Barangay</option><option>Barangay 1</option><option>Barangay 2</option><option>Other</option></select></div>
+      <div class="field"><label>Barangay of Residence / Case Origin</label><select id="caseBarangay">
+<option value="">Select Barangay</option>
+<optgroup label="Mayon Unit">
+  <option>Amtic</option>
+  <option>Baligang</option>
+  <option>Barayong</option>
+  <option>Basag</option>
+  <option>Batang</option>
+  <option>Binanowan</option>
+  <option>Busay</option>
+  <option>Herrera</option>
+  <option>Mahaba</option>
+  <option>Nabonton</option>
+  <option>Nasisi</option>
+  <option>Paulog</option>
+  <option>Pinit</option>
+  <option>Tambo</option>
+</optgroup>
+<optgroup label="Central Unit">
+  <option>Bagumbayan</option>
+  <option>Bay</option>
+  <option>Binatagan</option>
+  <option>Bobonsuran</option>
+  <option>Bonga</option>
+  <option>Calzada</option>
+  <option>Cavasi</option>
+  <option>Dunao</option>
+  <option>Guilid</option>
+  <option>Layon</option>
+  <option>Pandan</option>
+  <option>Ranao-ranao</option>
+  <option>Santa Cruz</option>
+  <option>Tagpo</option>
+  <option>Tinago</option>
+  <option>Tinampo</option>
+  <option>Tomolin</option>
+  <option>Tuburan</option>
+</optgroup>
+<optgroup label="Upland Unit">
+  <option>Abella</option>
+  <option>Allang</option>
+  <option>Bacong</option>
+  <option>Balanac</option>
+  <option>Busac</option>
+  <option>Culliat</option>
+  <option>Francia</option>
+  <option>Macalidong</option>
+  <option>Malama</option>
+  <option>Oma-oma</option>
+  <option>Palapas</option>
+  <option>Paulba</option>
+  <option>Pinamaniquian</option>
+  <option>San Vicente</option>
+  <option>Tandarura</option>
+  <option>Tastas</option>
+  <option>Tiongson</option>
+  <option>Tula-tula Grande</option>
+  <option>Tula-tula Pequeño</option>
+  <option>Tupas</option>
+</optgroup>
+<optgroup label="Coastal Unit">
+  <option>Cabarian</option>
+  <option>Catburawan</option>
+  <option>Maonon</option>
+</optgroup>
+</select></div>
       <div class="field"><label>Assigned Social Worker</label>
         <select id="assignedWorker">
           <option value="ernestina">ERNESTINA CALACDAY, RSW — Social Welfare Officer II — VAWC</option>
