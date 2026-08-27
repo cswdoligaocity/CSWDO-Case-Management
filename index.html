@@ -231,7 +231,7 @@ const ADMIN_RESET_FUNCTION = 'admin-reset-password';
 <section class="content">
 <!-- DASHBOARD -->
 <div id="dashboard" class="page active">
-  <div class="hero"><div><h1>Good morning, Ernestina 👋</h1><p>Here is your VAWC case management workspace.</p></div><button class="btn btnPrimary" onclick="showPage('newcase')">＋ Create New Case</button></div>
+  <div class="hero"><div><h1 id="dashboardGreeting">Good morning 👋</h1><p id="dashboardWorkspace">Here is your CSWDO case management overview.</p></div><button id="dashboardCreateCaseBtn" class="btn btnPrimary" onclick="showPage('newcase')">＋ Create New Case</button></div>
   <div class="stats">
     <div class="stat"><div class="statTop"><span>Active Cases</span><div class="statIcon">▣</div></div><strong>24</strong><small>+3 this month</small></div>
     <div class="stat"><div class="statTop"><span>Follow-ups Today</span><div class="statIcon">◷</div></div><strong>3</strong><small>Needs attention</small></div>
@@ -833,6 +833,7 @@ function updateRoleInterface(profile){
   const access=(profile.program_access||[]).join(' + ');
   const initials=fullName.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
 
+  // Profile card and top-right account pill.
   document.querySelectorAll('.profileMini b').forEach(el=>el.textContent=fullName);
   document.querySelectorAll('.profileMini div[style*="font-size:10px"]').forEach(el=>{
     el.textContent=position+(access?' • '+access:'');
@@ -840,10 +841,30 @@ function updateRoleInterface(profile){
   document.querySelectorAll('.avatar').forEach(el=>el.textContent=initials);
   document.querySelectorAll('.userPill span').forEach(el=>el.textContent=fullName);
 
-  const title=document.querySelector('.main h1');
-  if(title && role==='social_worker'){
-    const program=(profile.program_access||[]).join(' + ');
-    title.textContent='Good morning, '+fullName.split(',')[0]+' 👋';
+  // Dynamic dashboard greeting — never hard-code a specific worker/program.
+  const firstName=(fullName.split(',')[0] || fullName).trim();
+  const dashboardGreeting=document.getElementById('dashboardGreeting');
+  const dashboardWorkspace=document.getElementById('dashboardWorkspace');
+  const dashboardCreate=document.getElementById('dashboardCreateCaseBtn');
+
+  if(dashboardGreeting){
+    dashboardGreeting.textContent='Good morning, '+firstName+' 👋';
+  }
+
+  if(dashboardWorkspace){
+    if(role==='admin'){
+      dashboardWorkspace.textContent='Here is your full CSWDO case management overview.';
+    }else if(role==='cswd_officer'){
+      dashboardWorkspace.textContent='Here is the consolidated CSWDO case management overview. View-only access.';
+    }else{
+      const programs=(profile.program_access||[]).join(' + ');
+      dashboardWorkspace.textContent='Here is your '+(programs || 'case')+' case management workspace.';
+    }
+  }
+
+  // Only Admin and Social Workers can create cases.
+  if(dashboardCreate){
+    dashboardCreate.style.display=(role==='admin' || role==='social_worker')?'':'none';
   }
 
   const set=(id,show)=>{const el=document.getElementById(id);if(el)el.style.display=show?'':'none'};
@@ -857,19 +878,18 @@ function updateRoleInterface(profile){
   set('navAudit',admin);
   set('navUsers',admin);
 
-  // Irene is VIEW ALL only. Hide all management actions from her.
+  // CSWD Officer is VIEW ALL only. Hide all case-management controls.
   document.querySelectorAll('[onclick*="editCase"],[onclick*="deleteCasePrompt"],[onclick*="openReassign"]').forEach(el=>{
     el.style.display=(admin||worker)?'':'none';
   });
 
-  // Worker dashboard should not expose management section.
+  // Social workers do not see the Management section.
   document.querySelectorAll('.nav .section').forEach(section=>{
     if(section.textContent.trim().toLowerCase()==='management'){
       section.style.display=worker?'none':'';
     }
   });
 
-  // Make sure a social worker cannot navigate directly to All Cases through UI.
   window.currentRole=role;
 }
 supabaseClient.auth.onAuthStateChange((event,session)=>{
@@ -930,6 +950,8 @@ function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','
 */
 function applyStrictRoleUI(profile){
   if(!profile) return;
+  // Keep dashboard identity synchronized even if the auth event fires after rendering.
+  if(typeof updateRoleInterface === 'function') updateRoleInterface(profile);
   const role = profile.role;
 
   const selectors = {
