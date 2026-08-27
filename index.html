@@ -661,11 +661,15 @@ async function registerSocialWorker(){
 
   const requestedAccess = program==='CAR_CICL' ? ['CAR','CICL'] : [program];
   const btn=document.querySelector('#registerScreen .loginBtn');
-  if(btn){btn.disabled=true;btn.textContent='Submitting...'}
+  if(btn){btn.disabled=true;btn.textContent='Creating account...'}
 
   try{
-    /* The database trigger creates the PENDING profile from auth metadata.
-       This works whether Supabase requires email confirmation or not. */
+    /*
+      Create the Supabase Auth account first.  The metadata is retained so the
+      database trigger can create the pending profile when it is installed.
+      If the project has email confirmation disabled, the code below also
+      creates/repairs the profile directly after sign-up.
+    */
     const {data,error}=await supabaseClient.auth.signUp({
       email,
       password,
@@ -684,10 +688,47 @@ async function registerSocialWorker(){
       const msg=(error.message||'').toLowerCase();
       if(msg.includes('already registered')||msg.includes('already exists')){
         toast('This email is already registered. Use Login or Forgot Password.');
+      }else if(msg.includes('database error saving new user')||msg.includes('trigger')){
+        toast('Registration is blocked by the Supabase user-profile trigger. Please run the CSWDO profile repair SQL first.');
+        console.error('SUPABASE SIGN-UP/TRIGGER ERROR:',error);
       }else{
         toast(error.message || 'Registration failed.');
       }
       return;
+    }
+
+    /*
+      With email confirmation OFF, Supabase returns a session.  Upsert the
+      profile so a missing/broken profile trigger cannot leave an orphaned
+      Auth user.  If RLS blocks this, the exact database error is displayed.
+    */
+    if(data?.user){
+      const profilePayload={
+        id:data.user.id,
+        full_name:name,
+        position_title:position,
+        role:'social_worker',
+        program_access:[],
+        requested_program:program,
+        requested_access:requestedAccess,
+        approval_status:'pending',
+        is_active:false
+      };
+
+      if(data.session){
+        const {error:profileError}=await supabaseClient
+          .from('profiles')
+          .upsert(profilePayload,{onConflict:'id'});
+
+        if(profileError){
+          console.error('PROFILE CREATION ERROR:',profileError);
+          await supabaseClient.auth.signOut();
+          toast('Auth account was created, but the CSWDO profile could not be created: '+profileError.message);
+          return;
+        }
+
+        await supabaseClient.auth.signOut();
+      }
     }
 
     closeRegistration();
@@ -695,13 +736,13 @@ async function registerSocialWorker(){
       const el=document.getElementById(id); if(el) el.value='';
     });
 
-    if(data.session){
-      await supabaseClient.auth.signOut();
+    if(data?.session){
       toast('Registration submitted. Your account is pending Admin approval.');
     }else{
-      toast('Registration submitted. Check your email if confirmation is required. Your account is pending Admin approval.');
+      toast('Registration submitted. If email confirmation is enabled, confirm your email first. Your account is pending Admin approval.');
     }
   }catch(err){
+    console.error('REGISTRATION ERROR:',err);
     toast(err?.message || 'Registration failed.');
   }finally{
     if(btn){btn.disabled=false;btn.textContent='Submit Registration'}
