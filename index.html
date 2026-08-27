@@ -96,6 +96,7 @@ button,input,select,textarea{font:inherit} button{cursor:pointer}
 <script>
 const SUPABASE_URL = 'https://ubnkukexiroyocunmfos.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_qR6-m7IXHX0HpyWuw4yJSw_YyNnxElT';
+const CSWDO_APP_URL = 'https://cswdoligaocity.github.io/CSWDO-Case-Management/';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: { autoRefreshToken:true, persistSession:true, detectSessionInUrl:true }
 });
@@ -680,6 +681,7 @@ async function registerSocialWorker(){
       email,
       password,
       options:{
+        emailRedirectTo: CSWDO_APP_URL,
         data:{
           full_name:name,
           position_title:position,
@@ -1013,6 +1015,14 @@ function updateRoleInterface(profile){
 
   window.currentRole=role;
 }
+/* Explicit GitHub Pages authentication callback initialization. */
+(async function initAuthCallback(){
+  try{
+    const {data:{session}} = await supabaseClient.auth.getSession();
+    if(session) setTimeout(loadAuthenticatedUser,0);
+  }catch(err){ console.warn('Auth session initialization:', err); }
+})();
+
 supabaseClient.auth.onAuthStateChange((event,session)=>{
   if(session) setTimeout(loadAuthenticatedUser,0);
 });
