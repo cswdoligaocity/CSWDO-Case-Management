@@ -102,6 +102,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLI
 let currentProfile = null;
 const ADMIN_RESET_FUNCTION = 'admin-reset-password';
 </script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -272,7 +273,7 @@ const ADMIN_RESET_FUNCTION = 'admin-reset-password';
 
 
 <div id="allcases" class="page">
-  <div class="hero"><div><h1>All Cases</h1><p>Cross-program case overview. The CSWD Officer has view-only access; Admin has full administrative access.</p></div><button class="btn btnPrimary" onclick="showPage('newcase')">＋ New Case</button></div>
+  <div class="hero"><div><h1>All Cases</h1><p>Cross-program case overview. The CSWD Officer has view-only access; Admin has full administrative access.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btnLight" onclick="openHistoricalImport()">⇧ Import Historical Cases</button><button class="btn btnPrimary" onclick="showPage('newcase')">＋ New Case</button></div></div>
   <div class="notice"><b>Access control:</b> This screen is intended for authorized CSWDO users. Social workers should only see cases permitted by their role and assignment. The production version will enforce these permissions at the database level.</div>
   <div class="rolePanel">
     <div class="roleCard"><b><span class="roleDot" style="background:#6844bd"></span>VAWC</b><small>24 active cases • Ernestina Calacday, RSW</small></div>
@@ -396,6 +397,10 @@ const ADMIN_RESET_FUNCTION = 'admin-reset-password';
       <div class="field"><label>Contact Number</label><input placeholder="09XX XXX XXXX"></div>
       <div class="field full"><label>Address</label><textarea placeholder="Complete address"></textarea></div>
       <div class="field full"><label>Initial Case Concern / Brief Description</label><textarea placeholder="Enter factual initial information. Detailed case notes can be added in the case profile."></textarea></div>
+    </div>
+    <div id="programSpecificFields" class="card" style="margin-top:18px;box-shadow:none;background:#fafbff;border:1px solid var(--line)">
+      <div class="sectionTitle" style="margin-top:0">Program-Specific Information</div>
+      <div id="programSpecificGrid" class="formGrid"></div>
     </div>
     <div class="transferNote"><b>Case Assignment:</b> The assigned social worker can be changed later by an authorized CSWDO Officer/Admin if a social worker resigns, transfers, is reassigned, or the case needs to be transferred. The system will preserve the previous assignment in the case history and audit log.</div>
     <div class="sectionTitle">Initial Document</div>
@@ -613,6 +618,17 @@ const ADMIN_RESET_FUNCTION = 'admin-reset-password';
   </div>
 </div>
 
+<div id="historicalImportModal" class="loginScreen" style="display:none;background:rgba(17,24,45,.58);z-index:116;overflow:auto">
+  <div class="loginBox" style="width:min(820px,94vw);max-height:90vh;overflow:auto">
+    <h1 style="text-align:left;margin-top:0">Import Historical Cases</h1>
+    <p style="text-align:left">Import VAWC, CNSP, CICL, or CAR records from CSV/XLSX. Existing client codes are preserved. System case numbers are generated automatically.</p>
+    <div class="notice"><b>Required:</b> Case Type, Year, Client's Code, and Date Received. Rows with blank Date Received are not invented or altered; they will be reported as skipped.</div>
+    <div class="field"><label>File</label><input id="historicalFile" type="file" accept=".csv,.xlsx,.xls"></div>
+    <div class="field"><label>Or paste CSV</label><textarea id="historicalCsv" style="min-height:150px" placeholder="Case Type,Year,Date Received,Time Received,Client's Code,Barangay,Sex,Type of Violence/Abuse,Relationship of the Perpetrator to the Victim,Status,Remarks"></textarea></div>
+    <div id="importPreview" class="historyNote" style="display:none"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px"><button class="btn btnLight" onclick="closeHistoricalImport()">Cancel</button><button class="btn btnLight" onclick="previewHistoricalImport()">Preview</button><button class="btn btnPrimary" onclick="importHistoricalCases()">Import Cases</button></div>
+  </div>
+</div>
 <div id="toast" class="toast"></div>
 <script>
 
@@ -1008,6 +1024,39 @@ function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','
 </script>
 
 <script>
+/* DATABASE-DRIVEN CASE MANAGEMENT + HISTORICAL IMPORT */
+const LIGAO_55_BARANGAYS = ['Abella', 'Allang', 'Amtic', 'Bacong', 'Bagumbayan', 'Balanac', 'Baligang', 'Barayong', 'Basag', 'Batang', 'Bay', 'Binanowan', 'Binatagan', 'Bobonsuran', 'Bonga', 'Busac', 'Busay', 'Cabarian', 'Calzada', 'Catburawan', 'Cavasi', 'Culliat', 'Dunao', 'Francia', 'Guilid', 'Herrera', 'Layon', 'Macalidong', 'Mahaba', 'Malama', 'Maonon', 'Nasisi', 'Nabonton', 'Oma-oma', 'Palapas', 'Pandan', 'Paulba', 'Paulog', 'Pinamaniquian', 'Pinit', 'Ranao-ranao', 'San Vicente', 'Santa Cruz', 'Tagpo', 'Tambo', 'Tandarura', 'Tastas', 'Tinago', 'Tinampo', 'Tiongson', 'Tomolin', 'Tuburan', 'Tula-tula Grande', 'Tula-tula Pequeño', 'Tupas'];
+function esc(v){ return escapeHtml(String(v ?? '')); }
+function normHeader(h){ return String(h||'').trim().toLowerCase().replace(/[’']/g,"'").replace(/\s+/g,' ').replace(/\\/g,'/'); }
+function normalizeCaseType(v){ const x=String(v||'').trim().toUpperCase(); if(x.includes('VAWC'))return 'VAWC'; if(x.includes('CNSP'))return 'CNSP'; if(x.includes('CICL'))return 'CICL'; if(x==='CAR'||x.includes('CHILD AT RISK'))return 'CAR'; return x; }
+function mapStatus(v){ const x=String(v||'').trim().toLowerCase(); if(x.includes('closed')||x.includes('discharged')||x.includes('terminated'))return 'Closed'; if(x.includes('follow'))return 'For Follow-up'; if(x.includes('referred')||x.includes('endorsed'))return 'Referred'; return 'Active'; }
+function parseDateValue(v){ if(v instanceof Date&&!isNaN(v))return v.toISOString().slice(0,10); const s=String(v||'').trim(); if(!s)return ''; if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)){const [y,m,d]=s.split('-');return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;} const m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); if(m)return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; return ''; }
+function parseCsv(text){ const rows=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(q&&n==='"'){cell+='"';i++;}else q=!q;}else if(c===','&&!q){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(cell);cell='';if(row.some(x=>String(x).trim()!==''))rows.push(row);row=[];}else cell+=c;}if(cell!==''||row.length){row.push(cell);if(row.some(x=>String(x).trim()!==''))rows.push(row);}if(!rows.length)return [];const headers=rows[0].map(normHeader);return rows.slice(1).map(r=>{const o={};headers.forEach((h,i)=>o[h]=r[i]??'');return o;}); }
+function rowGet(r,names){for(const n of names){const k=normHeader(n);if(r[k]!==undefined&&String(r[k]).trim()!=='')return r[k];}return '';}
+function normalizeImportedRow(r){const type=normalizeCaseType(rowGet(r,['Case Type','Program','Type']));const year=Number(rowGet(r,['Year','Case Year','Record Year']));const date=parseDateValue(rowGet(r,['Date Received','Date Case Was Received','Received Date']));const code=rowGet(r,["Client's Code",'Client Code','Client Code / Case Alias']);const barangay=rowGet(r,['Barangay','Barangay of Residence / Case Origin']);const sex=rowGet(r,['Sex']);const status=mapStatus(rowGet(r,['Status','Case Status']));const violence=rowGet(r,['Type of Violence/Abuse','Type of Violence','Type of Violence / Abuse']);const offense=rowGet(r,['Nature of Offense','Nature of Offence']);const relationship=rowGet(r,['Relationship of the Perpetrator to the Victim','Relationship of the Perpatrator to the Victim','Relationship of Perpetrator to Victim']);const remarks=rowGet(r,['Remarks']);const time=rowGet(r,['Time Received','Time']);const details=[];if(violence)details.push('Type of Violence/Abuse: '+violence);if(offense)details.push('Nature of Offense: '+offense);if(relationship)details.push('Relationship of Perpetrator to Victim: '+relationship);if(time)details.push('Time Received: '+time);if(remarks)details.push('Remarks: '+remarks);return {type,year,date,code,barangay,sex,status,details:details.join('\n')};}
+async function getWorkersForType(type){const {data,error}=await supabaseClient.from('profiles').select('id,full_name,position_title,role,program_access,is_active,approval_status').eq('is_active',true).eq('approval_status','approved');if(error)throw error;return (data||[]).filter(p=>p.role==='admin'||p.role==='cswd_officer'||(p.role==='social_worker'&&(p.program_access||[]).includes(type)));}
+function renderProgramFields(type){const box=document.getElementById('programSpecificGrid');if(!box)return;const sex='<div class="field"><label>Sex</label><select id="caseSex"><option value="">Select</option><option>Female</option><option>Male</option><option>Other</option></select></div>';let html=sex;if(type==='VAWC')html+='<div class="field"><label>Type of Violence / Abuse</label><input id="violenceType" placeholder="e.g. Psychological Abuse"></div><div class="field"><label>Relationship of Perpetrator to Victim</label><input id="perpRelationship"></div>';else if(type==='CNSP')html+='<div class="field"><label>Type of Violence</label><input id="violenceType" placeholder="e.g. Sexual Abuse"></div><div class="field"><label>Relationship of Perpetrator to Victim</label><input id="perpRelationship"></div>';else if(type==='CICL')html+='<div class="field"><label>Nature of Offense</label><input id="offenseNature"></div><div class="field"><label>Remarks</label><input id="caseRemarks"></div>';else html+='<div class="field"><label>Nature / Type of Concern</label><input id="carConcern"></div><div class="field"><label>Remarks</label><input id="caseRemarks"></div>';box.innerHTML=html;}
+async function loadWorkerOptions(){const type=normalizeCaseType(document.getElementById('caseType')?.value||'VAWC');const sel=document.getElementById('assignedWorker');if(!sel)return;try{const workers=await getWorkersForType(type);sel.innerHTML='<option value="">Select assigned social worker</option>';workers.forEach(w=>{const o=document.createElement('option');o.value=w.id;o.textContent=`${w.full_name} — ${w.position_title||w.role}`;sel.appendChild(o);});if(currentProfile?.role==='social_worker'){sel.value=currentProfile.id;sel.disabled=true;}else sel.disabled=false;}catch(e){toast('Unable to load social workers: '+e.message);}}
+function setupProgramFields(){const s=document.getElementById('caseType');if(!s)return;renderProgramFields(normalizeCaseType(s.value));if(!s.dataset.dbBound){s.dataset.dbBound='1';s.addEventListener('change',()=>{renderProgramFields(normalizeCaseType(s.value));loadWorkerOptions();});}loadWorkerOptions();}
+async function saveCase(){if(!currentProfile){toast('Please sign in first');return}const type=normalizeCaseType(document.getElementById('caseType')?.value),year=Number(document.getElementById('recordYear')?.value),date=document.getElementById('dateReceived')?.value,barangay=document.getElementById('caseBarangay')?.value||null,assigned=document.getElementById('assignedWorker')?.value||null,clientCode=document.getElementById('clientCodeField')?.value.trim()||null,clientName=document.getElementById('clientNameField')?.value.trim()||null,ageVal=document.getElementById('clientAgeField')?.value,sex=document.getElementById('caseSex')?.value||null,address=document.getElementById('clientAddressField')?.value.trim()||null,brief=document.getElementById('briefField')?.value.trim()||'';if(!type||!year||!date){toast('Please complete Case Type, Year, and Date Received');return}if(currentProfile.role==='social_worker'&&!(currentProfile.program_access||[]).includes(type)){toast('You are not authorized for '+type);return}const detail=[];const v=document.getElementById('violenceType')?.value.trim(),rel=document.getElementById('perpRelationship')?.value.trim(),off=document.getElementById('offenseNature')?.value.trim(),rem=document.getElementById('caseRemarks')?.value.trim(),car=document.getElementById('carConcern')?.value.trim();if(v)detail.push('Type of Violence/Abuse: '+v);if(rel)detail.push('Relationship of Perpetrator to Victim: '+rel);if(off)detail.push('Nature of Offense: '+off);if(car)detail.push('Nature / Type of Concern: '+car);if(rem)detail.push('Remarks: '+rem);const combined=[brief,...detail].filter(Boolean).join('\n');const status=document.getElementById('caseStatusField')?.value||'Active',priority=document.getElementById('casePriorityField')?.value||'Normal';const {data,error}=await supabaseClient.rpc('create_case',{p_case_type:type,p_case_year:year,p_date_received:date,p_incident_date:document.getElementById('dateIncident')?.value||null,p_date_referred:null,p_source_of_referral:document.getElementById('sourceReferral')?.value||null,p_referred_by:null,p_barangay:barangay,p_assigned_social_worker:assigned,p_status:status,p_priority:priority,p_client_code:clientCode,p_client_name:clientName,p_birth_date:document.getElementById('clientBirthField')?.value||null,p_age:ageVal?Number(ageVal):null,p_sex:sex,p_civil_status:null,p_contact_number:document.getElementById('clientContactField')?.value.trim()||null,p_address:address,p_occupation:null,p_number_of_children:null,p_brief_description:combined||null});if(error){toast(error.message||'Unable to save case');return}const created=Array.isArray(data)?data[0]:data;toast('Case '+(created?.case_number||'saved')+' successfully');await refreshCaseData();showPage('allcases');}
+async function refreshCaseData(){if(!currentProfile)return;try{const {data,error}=await supabaseClient.from('cases').select('id,case_number,case_type,case_year,date_received,barangay,assigned_social_worker,status,client_code,client_name,sex,created_at').order('date_received',{ascending:false}).limit(500);if(error)throw error;const profiles=await supabaseClient.from('profiles').select('id,full_name');const pmap=Object.fromEntries((profiles.data||[]).map(p=>[p.id,p.full_name]));window._caseRows=(data||[]).map(r=>({...r,assigned_name:pmap[r.assigned_social_worker]||''}));renderCaseTables(window._caseRows);updateDashboardCounts(window._caseRows);}catch(e){console.error(e);toast('Unable to load cases: '+e.message);}}
+function badgeClass(type){return ({VAWC:'vawc',CNSP:'cnsp',CAR:'car',CICL:'cicl'})[type]||'yearBadge'}function statusClass(s){return s==='Closed'?'yearBadge':s==='For Follow-up'||s==='Referred'?'followB':'activeB'}function renderCaseTables(rows){const myBody=document.querySelector('#cases tbody');if(myBody){const filtered=currentProfile?.role==='social_worker'?rows.filter(r=>r.assigned_social_worker===currentProfile.id):rows;myBody.innerHTML=filtered.map(r=>`<tr><td><b>${esc(r.case_number)}</b></td><td><span class="badge ${badgeClass(r.case_type)}">${esc(r.case_type)}</span></td><td>${esc(formatDate(r.date_received))}<br><span class="yearBadge">${r.case_year}</span></td><td>${esc(r.barangay||'')}</td><td><span class="badge ${statusClass(r.status)}">${esc(r.status)}</span></td><td>—</td><td><button class="btn btnLight" onclick="openDatabaseCase('${r.id}')">Open</button>${currentProfile?.role==='admin'||currentProfile?.role==='social_worker'?` <button class="btn dangerBtn" onclick="deleteDatabaseCase('${r.id}','${esc(r.case_number)}')">Delete</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">No cases recorded.</td></tr>';}const allBody=document.querySelector('#allcases tbody');if(allBody){allBody.innerHTML=rows.map(r=>`<tr><td><b>${esc(r.case_number)}</b></td><td><span class="badge ${badgeClass(r.case_type)}">${esc(r.case_type)}</span></td><td>${r.case_year}</td><td>${esc(formatDate(r.date_received))}</td><td>${esc(r.assigned_name||'')}</td><td>${esc(r.barangay||'')}</td><td><span class="badge ${statusClass(r.status)}">${esc(r.status)}</span></td><td><button class="btn btnLight" onclick="openDatabaseCase('${r.id}')">Open</button></td></tr>`).join('')||'<tr><td colspan="8" class="muted">No cases recorded.</td></tr>';}}
+function formatDate(s){if(!s)return '';const d=new Date(s+'T00:00:00');return isNaN(d)?s:d.toLocaleDateString('en-PH',{day:'2-digit',month:'short',year:'numeric'});}
+function updateDashboardCounts(rows){const active=rows.filter(r=>r.status==='Active'||r.status==='For Follow-up'||r.status==='Referred').length,referrals=rows.filter(r=>r.status==='Referred').length;const vals=[active,0,0,referrals];document.querySelectorAll('#dashboard .stats .stat strong').forEach((el,i)=>{if(i<4)el.textContent=vals[i]});}
+async function openDatabaseCase(id){const r=(window._caseRows||[]).find(x=>x.id===id);if(!r)return;showPage('caseDetail');const title=document.querySelector('#caseDetail .caseTitle');if(title)title.textContent=r.case_number;const summary=document.querySelectorAll('#caseDetail .summaryItem b');if(summary.length>=5){summary[0].textContent=r.case_type;summary[1].textContent=r.status;summary[2].textContent=r.barangay||'—';summary[3].textContent=r.case_year;summary[4].textContent=r.client_code||'—';}}
+async function deleteDatabaseCase(id,number){if(!confirm('Delete '+number+'? This should only be used for incorrect/duplicate records.'))return;const {error}=await supabaseClient.rpc('delete_case',{p_case_id:id,p_case_number:number,p_reason:'User requested deletion'});if(error){toast(error.message);return}toast('Case deleted');await refreshCaseData();}
+function openHistoricalImport(){document.getElementById('historicalImportModal').style.display='grid';document.getElementById('historicalFile').value='';document.getElementById('historicalCsv').value='';document.getElementById('importPreview').style.display='none';}function closeHistoricalImport(){document.getElementById('historicalImportModal').style.display='none';}
+async function readHistoricalRows(){const file=document.getElementById('historicalFile').files[0];if(file){const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''});}const csv=document.getElementById('historicalCsv').value.trim();return csv?parseCsv(csv):[];}
+async function previewHistoricalImport(){try{const raw=await readHistoricalRows(),rows=raw.map(normalizeImportedRow),good=rows.filter(r=>r.type&&r.year&&r.date&&r.code),bad=rows.length-good.length,by={};good.forEach(r=>by[r.type]=(by[r.type]||0)+1);const box=document.getElementById('importPreview');box.style.display='block';box.innerHTML=`<b>${good.length} ready to import</b> • ${bad} skipped/invalid<br>${Object.entries(by).map(([k,v])=>`${k}: ${v}`).join(' • ')||'No valid rows'}`;}catch(e){toast('Unable to read file: '+e.message);}}
+async function importHistoricalCases(){if(!currentProfile){toast('Please sign in first');return}try{const raw=await readHistoricalRows();if(!raw.length){toast('Choose a CSV/XLSX file or paste CSV data');return}const rows=raw.map(normalizeImportedRow),valid=rows.filter(r=>r.type&&['VAWC','CNSP','CAR','CICL'].includes(r.type)&&r.year>=1900&&r.year<=2100&&r.date&&r.code);if(!valid.length){toast('No valid rows. Date Received is required.');return}let ok=0,fail=[];for(const r of valid){if(currentProfile.role==='social_worker'&&!(currentProfile.program_access||[]).includes(r.type)){fail.push(`${r.code}: not authorized for ${r.type}`);continue}let assigned=currentProfile.role==='social_worker'?currentProfile.id:null;if(!assigned){const ws=await getWorkersForType(r.type);assigned=(ws.find(w=>w.role==='social_worker')||ws[0])?.id||null;}const {error}=await supabaseClient.rpc('create_case',{p_case_type:r.type,p_case_year:r.year,p_date_received:r.date,p_incident_date:null,p_date_referred:null,p_source_of_referral:'Historical Record',p_referred_by:null,p_barangay:LIGAO_55_BARANGAYS.includes(r.barangay)?r.barangay:(r.barangay||null),p_assigned_social_worker:assigned,p_status:r.status,p_priority:'Normal',p_client_code:r.code,p_client_name:null,p_birth_date:null,p_age:null,p_sex:r.sex||null,p_civil_status:null,p_contact_number:null,p_address:null,p_occupation:null,p_number_of_children:null,p_brief_description:r.details||null});if(error)fail.push(`${r.code}: ${error.message}`);else ok++;}await refreshCaseData();closeHistoricalImport();toast(`Imported ${ok} case(s)${fail.length?' • '+fail.length+' failed':''}`);if(fail.length)console.warn('Historical import failures',fail);}catch(e){toast('Import failed: '+e.message);}}
+function installCaseFormEnhancements(){const type=document.getElementById('caseType');if(!type)return;document.querySelectorAll('#newcase .field').forEach(f=>{const label=f.querySelector('label')?.textContent.trim(),el=f.querySelector('input,textarea,select');if(!el)return;if(label?.startsWith('Client Code'))el.id='clientCodeField';if(label==='Full Name')el.id='clientNameField';if(label==='Date of Birth')el.id='clientBirthField';if(label==='Age')el.id='clientAgeField';if(label==='Contact Number')el.id='clientContactField';if(label==='Address')el.id='clientAddressField';if(label?.startsWith('Initial Case Concern'))el.id='briefField';if(label==='Source of Referral')el.id='sourceReferral';if(label==='Priority')el.id='casePriorityField';});if(!document.getElementById('caseStatusField')){const status=document.createElement('div');status.className='field';status.innerHTML='<label>Status</label><select id="caseStatusField"><option>Active</option><option>For Follow-up</option><option>Referred</option><option>Closed</option></select>';const grid=document.querySelector('#newcase .formGrid');if(grid)grid.appendChild(status);}setupProgramFields();}
+async function initDatabaseCaseUI(){installCaseFormEnhancements();if(currentProfile)await refreshCaseData();}
+const _oldLoadAuthenticatedUser=loadAuthenticatedUser;loadAuthenticatedUser=async function(){await _oldLoadAuthenticatedUser();if(currentProfile)setTimeout(initDatabaseCaseUI,100);};
+const _oldShowPage=showPage;showPage=function(id,btn){_oldShowPage(id,btn);if(id==='allcases'||id==='cases')setTimeout(refreshCaseData,50);if(id==='newcase')setTimeout(installCaseFormEnhancements,50);};
+setTimeout(()=>{if(currentProfile)initDatabaseCaseUI();},300);
+</script>
+
+<script>
 /* CSWDO ROLE UI GUARD
    UI visibility is only a convenience; Supabase RLS/RPC remains the real security layer.
 */
@@ -1056,58 +1105,6 @@ function applyStrictRoleUI(profile){
     if(el.classList.contains('userPill')) return;
   });
 }
-</script>
-
-
-<script>
-/*
- * CSWDO CASE SAVE SAFETY PATCH
- * Uses the existing form fields and Supabase client.
- * This helper is intentionally separate from the existing UI.
- */
-window.saveCSWDOCaseToDatabase = async function(payload){
-  if(!window.supabaseClient) throw new Error('Supabase client is not available.');
-
-  const p = payload || {};
-
-  // Normalize case type to the database enum values.
-  let caseType = p.case_type || p.caseType || p.program || '';
-  if(caseType === 'CAR_CICL') caseType = 'CAR';
-
-  const allowed = ['VAWC','CNSP','CAR','CICL'];
-  if(!allowed.includes(caseType)){
-    throw new Error('Please select a valid case type: VAWC, CNSP, CAR, or CICL.');
-  }
-
-  const record = {
-    case_type: caseType,
-    client_name: (p.client_name || p.clientName || '').trim(),
-    barangay: (p.barangay || '').trim(),
-    case_year: Number(p.case_year || p.caseYear || new Date().getFullYear()),
-    assigned_social_worker_id: p.assigned_social_worker_id || p.assignedSocialWorkerId || null
-  };
-
-  if(!record.client_name){
-    throw new Error('Client name is required.');
-  }
-
-  if(!record.barangay){
-    throw new Error('Barangay is required.');
-  }
-
-  if(!Number.isInteger(record.case_year) || record.case_year < 1900 || record.case_year > 2100){
-    throw new Error('Please enter a valid case year.');
-  }
-
-  const {data,error}=await window.supabaseClient
-    .from('cases')
-    .insert(record)
-    .select()
-    .single();
-
-  if(error) throw error;
-  return data;
-};
 </script>
 
 </body>
