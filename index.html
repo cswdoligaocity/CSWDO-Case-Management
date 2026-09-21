@@ -490,30 +490,30 @@ const ADMIN_RESET_FUNCTION = 'admin-reset-password';
 <div id="caseDetail" class="page">
   <div class="hero">
     <div>
-      <div class="caseTitle">VAWC-2021-0007</div>
-      <p>Violence Against Women and their Children • Confidential case record</p>
+      <div class="caseTitle" id="activeCaseTitle">Case Profile</div>
+      <p id="activeCaseSubtitle">Open a case to view its information.</p>
     </div>
     <div class="actionGroup">
-      <button class="btn btnLight" onclick="toast('Print case preview')">▧ Print Case</button>
+      <button class="btn btnLight" onclick="printActiveCase()">▧ Print Case</button>
       <button class="btn btnLight" onclick="openReassign()">↗ Change Assignment</button>
-      <button class="btn btnPrimary officerHide" onclick="editCase('VAWC-2021-0007')">✎ Edit Case</button>
-      <button class="btn dangerBtn officerHide" onclick="deleteCasePrompt('VAWC-2021-0007')">Delete Case</button>
+      <button class="btn btnPrimary officerHide" onclick="editActiveCase()">✎ Edit Case</button>
+      <button class="btn dangerBtn officerHide" onclick="deleteActiveCase()">Delete Case</button>
     </div>
   </div>
   <div class="card">
     <div class="caseSummary">
-      <div class="summaryItem"><label>Client</label><b>Restricted / Authorized View</b></div>
-      <div class="summaryItem"><label>Case Received</label><b>15 Mar 2021</b></div>
-      <div class="summaryItem"><label>Barangay</label><b>Poblacion 2</b></div>
-      <div class="summaryItem"><label>Case Year</label><b>2021</b></div>
-      <div class="summaryItem"><label>Assigned SW</label><b>Ernestina Calacday, RSW</b></div>
+      <div class="summaryItem"><label>Case Type</label><b id="summaryCaseType">—</b></div>
+      <div class="summaryItem"><label>Case Status</label><b id="summaryStatus">—</b></div>
+      <div class="summaryItem"><label>Barangay</label><b id="summaryBarangay">—</b></div>
+      <div class="summaryItem"><label>Case Year</label><b id="summaryYear">—</b></div>
+      <div class="summaryItem"><label>Assigned SW</label><b id="summaryAssigned">Unassigned</b></div>
     </div>
     <div class="tabs">
       <button class="active" onclick="caseTab('overview',this)">Overview</button>
       <button onclick="caseTab('assessment',this)">Assessment</button>
       <button onclick="caseTab('interventions',this)">Interventions</button>
       <button onclick="caseTab('caseFollowups',this)">Follow-ups</button>
-      <button onclick="caseTab('caseDocs',this)">Documents <span class="badge vawc">9</span></button>
+      <button onclick="caseTab('caseDocs',this)">Documents <span id="caseDocsCount" class="badge vawc">0</span></button>
       <button onclick="caseTab('timeline2',this)">Timeline</button>
       <button onclick="caseTab('notes',this)">Notes</button>
       <button onclick="caseTab('closure',this)">Case Closure</button>
@@ -523,54 +523,75 @@ const ADMIN_RESET_FUNCTION = 'admin-reset-password';
       <div class="grid2">
         <div class="card" style="box-shadow:none"><div class="cardHead"><h3>Case Information</h3></div>
           <div class="formGrid">
-            <div class="field"><label>Case Type</label><input value="VAWC — Violence Against Women and their Children" disabled></div>
-            <div class="field"><label>Case Status</label><input value="Active" disabled></div>
-            <div class="field"><label>Source of Referral</label><input value="Barangay VAW Desk" disabled></div>
-            <div class="field"><label>Date Referred</label><input value="11 Mar 2021" disabled></div>
-            <div class="field"><label>Incident Date</label><input value="10 Mar 2021" disabled></div>
-            <div class="field"><label>Next Follow-up</label><input value="28 Aug 2026" disabled></div>
-            <div class="field full"><label>Brief Description</label><textarea disabled>The client reported physical and psychological violence. Detailed narrative is restricted to authorized personnel.</textarea></div>
+            <div class="field"><label>Case Number</label><input id="detailCaseNumber" disabled></div>
+            <div class="field"><label>Case Type</label><input id="detailCaseType" disabled></div>
+            <div class="field"><label>Case Status</label><input id="detailCaseStatus" disabled></div>
+            <div class="field"><label>Priority</label><input id="detailPriority" disabled></div>
+            <div class="field"><label>Source of Referral</label><input id="detailSourceReferral" disabled></div>
+            <div class="field"><label>Date Received</label><input id="detailDateReceived" disabled></div>
+            <div class="field"><label>Date Referred</label><input id="detailDateReferred" disabled></div>
+            <div class="field"><label>Incident Date</label><input id="detailIncidentDate" disabled></div>
+            <div class="field full"><label>Brief Description</label><textarea id="detailBrief" disabled></textarea></div>
           </div>
         </div>
-        <div class="card" style="box-shadow:none"><div class="cardHead"><h3>Client Information</h3><button class="btn btnLight" onclick="toast('Authorized profile view')">View Full Profile →</button></div>
+        <div class="card" style="box-shadow:none"><div class="cardHead"><h3>Client Information</h3></div>
           <div class="formGrid">
-            <div class="field"><label>Civil Status</label><input value="Single" disabled></div>
-            <div class="field"><label>Age / Sex</label><input value="34 / Female" disabled></div>
-            <div class="field"><label>Address</label><input value="Poblacion 2, Ligao City, Albay" disabled></div>
-            <div class="field"><label>Contact No.</label><input value="Restricted" disabled></div>
-            <div class="field"><label>Occupation</label><input value="Restricted" disabled></div>
-            <div class="field"><label>No. of Children</label><input value="2" disabled></div>
+            <div class="field"><label>Client Code</label><input id="detailClientCode" disabled></div>
+            <div class="field"><label>Full Name</label><input id="detailClientName" disabled></div>
+            <div class="field"><label>Date of Birth</label><input id="detailBirthDate" disabled></div>
+            <div class="field"><label>Age / Sex</label><input id="detailAgeSex" disabled></div>
+            <div class="field"><label>Contact No.</label><input id="detailContact" disabled></div>
+            <div class="field"><label>Barangay</label><input id="detailBarangay" disabled></div>
+            <div class="field full"><label>Address</label><textarea id="detailAddress" disabled></textarea></div>
           </div>
         </div>
       </div>
     </div>
 
-    <div id="assessment" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="sectionTitle">Assessment</div><div class="formGrid"><div class="field"><label>Assessment Status</label><select><option>Completed</option><option>For Assessment</option><option>Updated</option></select></div><div class="field"><label>Assessment Date</label><input type="date" value="2021-03-16"></div><div class="field full"><label>Social Worker Assessment</label><textarea placeholder="Confidential professional assessment"></textarea></div></div><button class="btn btnPrimary" onclick="toast('Assessment saved')">Save Assessment</button></div></div>
+    <div id="assessment" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="sectionTitle">Assessment</div><p class="muted">No assessment has been recorded for this case yet.</p><div class="notice">Use <b>Edit Case</b> to update the core case information. Assessment records can be added here once the assessment module is connected to the database.</div></div></div>
 
-    <div id="interventions" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="cardHead"><h3>Interventions</h3><button class="btn btnPrimary" onclick="toast('Add intervention')">＋ Add Intervention</button></div><div class="caseList"><div class="case"><div><b>Initial counseling</b><div class="caseMeta">16 Mar 2021 • Ernestina Calacday, RSW</div></div><span class="badge activeB">Completed</span></div><div class="case"><div><b>Referral for appropriate assistance</b><div class="caseMeta">17 Mar 2021</div></div><span class="badge followB">Ongoing</span></div></div></div></div>
+    <div id="interventions" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="cardHead"><h3>Interventions</h3><button class="btn btnPrimary" onclick="toast('Intervention module is ready for database connection')">＋ Add Intervention</button></div><div id="caseInterventions" class="caseList"><div class="muted">No interventions recorded for this case.</div></div></div></div>
 
-    <div id="caseFollowups" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="cardHead"><h3>Follow-up Schedule</h3><button class="btn btnPrimary" onclick="toast('Add follow-up')">＋ Add Follow-up</button></div><div class="caseList"><div class="case"><div><b>Follow-up interview</b><div class="caseMeta">28 Aug 2026 • 9:00 AM</div></div><span class="badge followB">Upcoming</span></div><div class="case"><div><b>Previous follow-up</b><div class="caseMeta">26 Aug 2026 • Completed</div></div><span class="badge activeB">Completed</span></div></div></div></div>
+    <div id="caseFollowups" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="cardHead"><h3>Follow-up Schedule</h3><button class="btn btnPrimary" onclick="toast('Follow-up module is ready for database connection')">＋ Add Follow-up</button></div><div id="caseFollowupList" class="caseList"><div class="muted">No follow-ups recorded for this case.</div></div></div></div>
 
     <div id="caseDocs" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="cardHead"><h3>Case Documents</h3><div><input id="caseFiles" type="file" hidden multiple onchange="showCaseFiles(this)"><button class="btn btnPrimary" onclick="document.getElementById('caseFiles').click()">＋ Upload Document</button></div></div><div class="toolbar"><input id="caseDocumentSearch" class="search" placeholder="🔍 Search documents..." oninput="filterCaseDocuments()"><select id="caseDocumentCategory" class="select" onchange="filterCaseDocuments()"><option>All Categories</option><option>Assessment</option><option>Medical</option><option>Legal</option><option>Referral</option><option>Intervention</option><option>Closure</option></select></div><div id="caseFileList" class="fileList"><div class="muted" style="padding:16px">Open a case to load its documents.</div></div></div></div>
 
-    <div id="timeline2" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="cardHead"><h3>Case Timeline</h3><button class="btn btnLight" onclick="toast('Add timeline entry')">＋ Add</button></div><div class="timeline"><div class="event"><b>15 Mar 2021 — Case Received</b><p>Case record created. Original case year retained as 2021.</p></div><div class="event"><b>16 Mar 2021 — Assessment</b><p>Initial assessment recorded.</p></div><div class="event"><b>17 Mar 2021 — Document Uploaded</b><p>Referral documentation added to private case storage.</p></div><div class="event"><b>27 May 2026 — Assignment Changed</b><p>Case reassigned by authorized CSWD Officer. Previous assignment retained.</p></div></div></div></div>
+    <div id="timeline2" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="cardHead"><h3>Case Timeline</h3></div><div id="caseTimeline" class="timeline"><div class="muted">No timeline entries recorded.</div></div></div></div>
 
-    <div id="notes" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="sectionTitle">Confidential Case Notes</div><div class="field"><label>New Note</label><textarea placeholder="Enter professional case note"></textarea></div><button class="btn btnPrimary" onclick="toast('Note saved')">Save Note</button></div></div>
+    <div id="notes" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="sectionTitle">Confidential Case Notes</div><div class="field"><label>New Note</label><textarea id="newCaseNote" placeholder="Enter professional case note"></textarea></div><button class="btn btnPrimary" onclick="toast('Notes database module will be connected next')">Save Note</button></div></div>
 
-    <div id="closure" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="sectionTitle">Case Closure</div><div class="formGrid"><div class="field"><label>Closure Status</label><select><option>Active</option><option>For Closure Review</option><option>Closed</option></select></div><div class="field"><label>Closure Date</label><input type="date"></div><div class="field full"><label>Closure Summary</label><textarea placeholder="Complete only when authorized and appropriate"></textarea></div></div><button class="btn btnPrimary" onclick="toast('Closure information saved')">Save Closure Information</button></div></div>
+    <div id="closure" class="hiddenPanel" style="padding-top:18px"><div class="card" style="box-shadow:none"><div class="sectionTitle">Case Closure</div><div class="notice">No closure information has been recorded for this case.</div></div></div>
   </div>
+</div>
 
-  <div class="grid2" style="margin-top:18px">
-    <div class="card"><div class="cardHead"><div><h3>Assignment History</h3><span class="muted">Every reassignment is preserved</span></div></div>
-      <div class="timeline"><div class="event"><b>15 Mar 2021 — Original Assignment</b><p>Ernestina Calacday, RSW • Social Welfare Officer II • VAWC</p></div><div class="event"><b>27 May 2026 — Reassigned</b><p>New worker and reason recorded in the audit trail.</p></div></div>
+<!-- EDIT CASE MODAL -->
+<div id="editCaseModal" class="modalOverlay" style="display:none;z-index:120">
+  <div class="loginBox" style="width:min(900px,94vw);max-height:90vh;overflow:auto">
+    <h1 style="text-align:left;margin-top:0">Edit Case</h1>
+    <p style="text-align:left">Update the filed case information. Changes are saved to the existing case record.</p>
+    <div class="formGrid">
+      <div class="field"><label>Case Number</label><input id="editCaseNumber"></div>
+      <div class="field"><label>Client Code</label><input id="editClientCode"></div>
+      <div class="field"><label>Case Type</label><select id="editCaseType" onchange="loadEditWorkerOptions()"><option value="VAWC">VAWC</option><option value="CNSP">CNSP</option><option value="CAR">CAR</option><option value="CICL">CICL</option></select></div>
+      <div class="field"><label>Record Year</label><input id="editCaseYear" type="number" min="1900" max="2100"></div>
+      <div class="field"><label>Date Received</label><input id="editDateReceived" type="date"></div>
+      <div class="field"><label>Incident Date</label><input id="editIncidentDate" type="date"></div>
+      <div class="field"><label>Source of Referral</label><input id="editSourceReferral"></div>
+      <div class="field"><label>Barangay</label><select id="editBarangay"></select></div>
+      <div class="field"><label>Assigned Social Worker</label><select id="editAssignedWorker"></select></div>
+      <div class="field"><label>Status</label><select id="editStatus"><option>Active</option><option>For Follow-up</option><option>Referred</option><option>Closed</option></select></div>
+      <div class="field"><label>Priority</label><select id="editPriority"><option>Normal</option><option>High</option><option>Urgent</option></select></div>
+      <div class="field"><label>Client Name</label><input id="editClientName"></div>
+      <div class="field"><label>Date of Birth</label><input id="editBirthDate" type="date"></div>
+      <div class="field"><label>Age</label><input id="editAge" type="number" min="0"></div>
+      <div class="field"><label>Sex</label><select id="editSex"><option value="">Select</option><option>Female</option><option>Male</option><option>Other</option></select></div>
+      <div class="field"><label>Contact Number</label><input id="editContact"></div>
+      <div class="field full"><label>Address</label><textarea id="editAddress"></textarea></div>
+      <div class="field full"><label>Brief Description</label><textarea id="editBrief"></textarea></div>
     </div>
-    <div class="card"><div class="cardHead"><div><h3>Recent Audit Activity</h3><span class="muted">Case-level security history</span></div></div>
-      <div class="caseList"><div class="case"><div><b>Document uploaded</b><div class="caseMeta">Intervention Plan.pdf • 27 May 2026</div></div><span class="badge activeB">Logged</span></div><div class="case"><div><b>Case reassigned</b><div class="caseMeta">Authorized CSWD Officer • 27 May 2026</div></div><span class="badge activeB">Logged</span></div></div>
-    </div>
+    <div id="editCaseMessage" class="notice" style="display:none;margin-top:12px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px"><button class="btn btnLight" onclick="closeEditCase()">Cancel</button><button class="btn btnPrimary" onclick="saveEditedCase()">Save Changes</button></div>
   </div>
-</div></div>
-</section>
-</main>
 </div>
 
 
@@ -856,10 +877,6 @@ async function changePassword(){
   document.getElementById('confirmPassword').value='';
   toast('Password changed successfully');
 }
-async function editCase(caseNumber){
-  toast('Opening '+(caseNumber||'case')+' for editing');
-  showPage('caseDetail');
-}
 async function deleteCasePrompt(caseNumber){
   if(!currentProfile){toast('Please sign in first');return}
   const ok=confirm('Delete '+caseNumber+'? This should only be used for an incorrect/duplicate case. A deletion will be recorded in the audit log.');
@@ -1086,11 +1103,82 @@ async function saveCase(){
   try{await driveService('createCaseFolder',{caseType:type,caseNumber});if(files.length){toast('Case saved. Uploading '+files.length+' document(s)…');for(const file of files){const base64=await fileToBase64(file);const result=await driveService('uploadCaseFile',{caseType:type,caseNumber,fileName:file.name,mimeType:file.type||'application/octet-stream',base64Data:base64});if(!result?.success)throw new Error(result?.error||('Upload failed for '+file.name));await saveDocumentMetadata({caseId,caseType:type,caseNumber,file,result})}}}catch(e){console.error(e);toast('Case saved, but Drive upload failed: '+(e.message||e));await refreshCaseData();showPage('allcases');return}
   toast('Case '+caseNumber+' saved successfully');await refreshCaseData();showPage('allcases');
 }
-async function refreshCaseData(){if(!currentProfile)return;try{const {data,error}=await supabaseClient.from('cases').select('id,case_number,case_type,case_year,date_received,barangay,assigned_social_worker,status,client_code,client_name,sex,created_at').order('date_received',{ascending:false}).limit(500);if(error)throw error;const profiles=await supabaseClient.from('profiles').select('id,full_name');const pmap=Object.fromEntries((profiles.data||[]).map(p=>[p.id,p.full_name]));window._caseRows=(data||[]).map(r=>({...r,assigned_name:pmap[r.assigned_social_worker]||''}));renderCaseTables(window._caseRows);updateDashboardCounts(window._caseRows);}catch(e){console.error(e);toast('Unable to load cases: '+e.message);}}
+async function refreshCaseData(){if(!currentProfile)return;try{const {data,error}=await supabaseClient.from('cases').select('id,case_number,case_type,case_year,date_received,incident_date,date_referred,source_of_referral,barangay,assigned_social_worker,status,priority,client_code,client_name,birth_date,age,sex,contact_number,address,brief_description,created_at').order('date_received',{ascending:false}).limit(500);if(error)throw error;const profiles=await supabaseClient.from('profiles').select('id,full_name');const pmap=Object.fromEntries((profiles.data||[]).map(p=>[p.id,p.full_name]));window._caseRows=(data||[]).map(r=>({...r,assigned_name:pmap[r.assigned_social_worker]||''}));renderCaseTables(window._caseRows);updateDashboardCounts(window._caseRows);}catch(e){console.error(e);toast('Unable to load cases: '+e.message);}}
 function badgeClass(type){return ({VAWC:'vawc',CNSP:'cnsp',CAR:'car',CICL:'cicl'})[type]||'yearBadge'}function statusClass(s){return s==='Closed'?'yearBadge':s==='For Follow-up'||s==='Referred'?'followB':'activeB'}function renderCaseTables(rows){const myBody=document.querySelector('#cases tbody');if(myBody){const filtered=currentProfile?.role==='social_worker'?rows.filter(r=>r.assigned_social_worker===currentProfile.id):rows;myBody.innerHTML=filtered.map(r=>`<tr><td><b>${esc(r.case_number)}</b></td><td><span class="badge ${badgeClass(r.case_type)}">${esc(r.case_type)}</span></td><td>${esc(formatDate(r.date_received))}<br><span class="yearBadge">${r.case_year}</span></td><td>${esc(r.barangay||'')}</td><td><span class="badge ${statusClass(r.status)}">${esc(r.status)}</span></td><td>—</td><td><button class="btn btnLight" onclick="openDatabaseCase('${r.id}')">Open</button>${currentProfile?.role==='admin'||currentProfile?.role==='social_worker'?` <button class="btn dangerBtn" onclick="deleteDatabaseCase('${r.id}','${esc(r.case_number)}')">Delete</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">No cases recorded.</td></tr>';}const allBody=document.querySelector('#allcases tbody');if(allBody){allBody.innerHTML=rows.map(r=>`<tr><td><b>${esc(r.case_number)}</b></td><td><span class="badge ${badgeClass(r.case_type)}">${esc(r.case_type)}</span></td><td>${r.case_year}</td><td>${esc(formatDate(r.date_received))}</td><td>${esc(r.assigned_name||'')}</td><td>${esc(r.barangay||'')}</td><td><span class="badge ${statusClass(r.status)}">${esc(r.status)}</span></td><td><button class="btn btnLight" onclick="openDatabaseCase('${r.id}')">Open</button></td></tr>`).join('')||'<tr><td colspan="8" class="muted">No cases recorded.</td></tr>';}}
 function formatDate(s){if(!s)return '';const d=new Date(s+'T00:00:00');return isNaN(d)?s:d.toLocaleDateString('en-PH',{day:'2-digit',month:'short',year:'numeric'});}
 function updateDashboardCounts(rows){const active=rows.filter(r=>r.status==='Active'||r.status==='For Follow-up'||r.status==='Referred').length,referrals=rows.filter(r=>r.status==='Referred').length;const vals=[active,0,0,referrals];document.querySelectorAll('#dashboard .stats .stat strong').forEach((el,i)=>{if(i<4)el.textContent=vals[i]});}
-async function openDatabaseCase(id){const r=(window._caseRows||[]).find(x=>x.id===id);if(!r)return;window._activeCase=r;showPage('caseDetail');const title=document.querySelector('#caseDetail .caseTitle');if(title)title.textContent=r.case_number;const summary=document.querySelectorAll('#caseDetail .summaryItem b');if(summary.length>=5){summary[0].textContent=r.case_type;summary[1].textContent=r.status;summary[2].textContent=r.barangay||'—';summary[3].textContent=r.case_year;summary[4].textContent=r.client_code||'—';}await loadCaseDocuments(r);}
+async function openDatabaseCase(id){
+  const r=(window._caseRows||[]).find(x=>x.id===id);
+  if(!r)return;
+  window._activeCase=r;
+  showPage('caseDetail');
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v??'');};
+  const text=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=(v??'');};
+  text('activeCaseTitle',r.case_number||'Case Profile');
+  text('activeCaseSubtitle',(r.case_type||'Case')+' • Confidential case record');
+  text('summaryCaseType',r.case_type||'—');
+  text('summaryStatus',r.status||'—');
+  text('summaryBarangay',r.barangay||'—');
+  text('summaryYear',r.case_year||'—');
+  text('summaryAssigned',r.assigned_name||'Unassigned');
+  set('detailCaseNumber',r.case_number);set('detailCaseType',r.case_type);set('detailCaseStatus',r.status);set('detailPriority',r.priority||'Normal');
+  set('detailSourceReferral',r.source_of_referral);set('detailDateReceived',formatDate(r.date_received));set('detailDateReferred',formatDate(r.date_referred));set('detailIncidentDate',formatDate(r.incident_date));set('detailBrief',r.brief_description);
+  set('detailClientCode',r.client_code);set('detailClientName',r.client_name);set('detailBirthDate',r.birth_date);set('detailAgeSex',`${r.age??'—'} / ${r.sex||'—'}`);set('detailContact',r.contact_number);set('detailBarangay',r.barangay);set('detailAddress',r.address);
+  const timeline=document.getElementById('caseTimeline');if(timeline){timeline.innerHTML=`<div class="event"><b>${esc(formatDate(r.date_received)||'—')} — Case Received</b><p>Case record created in the CSWDO case management database.</p></div>`;}
+  const docs=await loadCaseDocuments(r);updateCaseDocumentCount();
+}
+function editActiveCase(){if(!window._activeCase){toast('Open a case first');return}editCase(window._activeCase.id)}
+async function editCase(caseId){
+  const r=(window._caseRows||[]).find(x=>x.id===caseId)||window._activeCase;
+  if(!r){toast('Case record not found');return}
+  window._activeCase=r;
+  const ids=['editCaseNumber','editClientCode','editCaseType','editCaseYear','editDateReceived','editIncidentDate','editSourceReferral','editBarangay','editAssignedWorker','editStatus','editPriority','editClientName','editBirthDate','editAge','editSex','editContact','editAddress','editBrief'];
+  const vals=[r.case_number,r.client_code,r.case_type,r.case_year,r.date_received,r.incident_date,r.source_of_referral,r.barangay,r.assigned_social_worker,r.status,r.priority||'Normal',r.client_name,r.birth_date,r.age,r.sex,r.contact_number,r.address,r.brief_description];
+  ids.forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=vals[i]??''});
+  const b=document.getElementById('editBarangay');if(b){b.innerHTML='<option value="">Select barangay</option>'+LIGAO_55_BARANGAYS.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');b.value=r.barangay||'';}
+  await loadEditWorkerOptions(r.assigned_social_worker);
+  document.getElementById('editCaseMessage').style.display='none';
+  document.getElementById('editCaseModal').style.display='grid';
+}
+function closeEditCase(){const m=document.getElementById('editCaseModal');if(m)m.style.display='none'}
+async function loadEditWorkerOptions(currentId){
+  const type=document.getElementById('editCaseType')?.value||'VAWC';
+  const sel=document.getElementById('editAssignedWorker');if(!sel)return;
+  try{
+    const workers=await getWorkersForType(type);const current=(window._activeCase||{}).assigned_social_worker;
+    sel.innerHTML='<option value="">Unassigned</option>';
+    workers.forEach(w=>{const o=document.createElement('option');o.value=w.id;o.textContent=`${w.full_name} — ${w.position_title||w.role}`;sel.appendChild(o)});
+    const wanted=currentId||current||'';
+    if(wanted&&!Array.from(sel.options).some(o=>o.value===wanted)){
+      const p=(await supabaseClient.from('profiles').select('id,full_name,position_title,role').eq('id',wanted).maybeSingle()).data;
+      if(p){const o=document.createElement('option');o.value=p.id;o.textContent=`${p.full_name} — ${p.position_title||p.role}`;sel.appendChild(o)}
+    }
+    sel.value=wanted;
+  }catch(e){toast('Unable to load social workers: '+e.message)}
+}
+async function saveEditedCase(){
+  const r=window._activeCase;if(!r){toast('No active case');return}
+  const caseNumber=document.getElementById('editCaseNumber').value.trim(),type=document.getElementById('editCaseType').value,year=Number(document.getElementById('editCaseYear').value),dateReceived=document.getElementById('editDateReceived').value;
+  if(!caseNumber||!type||!year||!dateReceived){toast('Case Number, Case Type, Record Year, and Date Received are required');return}
+  if(currentProfile?.role==='social_worker'&&!(currentProfile.program_access||[]).includes(type)){toast('You are not authorized for '+type);return}
+  const {data:dup,error:dupErr}=await supabaseClient.from('cases').select('id').eq('case_number',caseNumber).neq('id',r.id).limit(1);
+  if(dupErr){toast(dupErr.message);return}if(dup?.length){toast('That Case Number is already used by another case.');return}
+  const patch={case_number:caseNumber,case_type:type,case_year:year,date_received:dateReceived,incident_date:document.getElementById('editIncidentDate').value||null,source_of_referral:document.getElementById('editSourceReferral').value.trim()||null,barangay:document.getElementById('editBarangay').value||null,assigned_social_worker:document.getElementById('editAssignedWorker').value||null,status:document.getElementById('editStatus').value,priority:document.getElementById('editPriority').value,client_code:document.getElementById('editClientCode').value.trim()||null,client_name:document.getElementById('editClientName').value.trim()||null,birth_date:document.getElementById('editBirthDate').value||null,age:document.getElementById('editAge').value?Number(document.getElementById('editAge').value):null,sex:document.getElementById('editSex').value||null,contact_number:document.getElementById('editContact').value.trim()||null,address:document.getElementById('editAddress').value.trim()||null,brief_description:document.getElementById('editBrief').value.trim()||null};
+  const {error}=await supabaseClient.from('cases').update(patch).eq('id',r.id);if(error){toast('Unable to save case: '+error.message);return}
+  try{if(r.case_type!==type||r.case_number!==caseNumber){await driveService('renameCaseFolder',{oldCaseType:r.case_type,oldCaseNumber:r.case_number,newCaseType:type,newCaseNumber:caseNumber});}}catch(e){console.warn(e);toast('Case updated, but the Drive folder could not be renamed: '+e.message)}
+  closeEditCase();await refreshCaseData();const updated=(window._caseRows||[]).find(x=>x.id===r.id);if(updated)await openDatabaseCase(updated.id);toast('Case updated successfully');
+}
+function deleteActiveCase(){const r=window._activeCase;if(!r){toast('Open a case first');return}deleteDatabaseCase(r.id,r.case_number)}
+function updateCaseDocumentCount(){const n=(window._caseDocuments||[]).length;const el=document.getElementById('caseDocsCount');if(el)el.textContent=n}
+async function printActiveCase(){
+  const r=window._activeCase;if(!r){toast('Open a case first');return}
+  const docs=window._caseDocuments||[];
+  const win=window.open('','_blank','width=1000,height=800');
+  if(!win){toast('Please allow pop-ups for printing the case.');return}
+  const escPrint=v=>String(v??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+  win.document.write(`<!doctype html><html><head><title>${escPrint(r.case_number)}</title><style>body{font-family:Arial,sans-serif;padding:36px;color:#111}h1{margin:0 0 6px;font-size:24px}h2{font-size:16px;border-bottom:1px solid #bbb;padding-bottom:6px;margin-top:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}.item{padding:6px 0}.label{font-size:10px;text-transform:uppercase;color:#666}.value{font-size:13px;white-space:pre-wrap}.docs li{margin:5px 0}@media print{button{display:none}}</style></head><body><h1>${escPrint(r.case_number)}</h1><div>${escPrint(r.case_type||'')} • Confidential Case Record</div><h2>Case Information</h2><div class="grid"><div class="item"><div class="label">Case Status</div><div class="value">${escPrint(r.status||'—')}</div></div><div class="item"><div class="label">Priority</div><div class="value">${escPrint(r.priority||'Normal')}</div></div><div class="item"><div class="label">Date Received</div><div class="value">${escPrint(formatDate(r.date_received)||'—')}</div></div><div class="item"><div class="label">Incident Date</div><div class="value">${escPrint(formatDate(r.incident_date)||'—')}</div></div><div class="item"><div class="label">Barangay</div><div class="value">${escPrint(r.barangay||'—')}</div></div><div class="item"><div class="label">Assigned Social Worker</div><div class="value">${escPrint(r.assigned_name||'Unassigned')}</div></div><div class="item"><div class="label">Source of Referral</div><div class="value">${escPrint(r.source_of_referral||'—')}</div></div><div class="item"><div class="label">Client Code</div><div class="value">${escPrint(r.client_code||'—')}</div></div></div><h2>Client Information</h2><div class="grid"><div class="item"><div class="label">Client Name</div><div class="value">${escPrint(r.client_name||'—')}</div></div><div class="item"><div class="label">Date of Birth</div><div class="value">${escPrint(r.birth_date||'—')}</div></div><div class="item"><div class="label">Age / Sex</div><div class="value">${escPrint((r.age??'—')+' / '+(r.sex||'—'))}</div></div><div class="item"><div class="label">Contact</div><div class="value">${escPrint(r.contact_number||'—')}</div></div><div class="item" style="grid-column:1/-1"><div class="label">Address</div><div class="value">${escPrint(r.address||'—')}</div></div></div><h2>Case Description</h2><div class="value">${escPrint(r.brief_description||'—')}</div><h2>Documents</h2><ul class="docs">${docs.length?docs.map(d=>`<li>${escPrint(d.file_name||'Document')}</li>`).join(''):'<li>No documents recorded.</li>'}</ul><p style="margin-top:36px;font-size:10px;color:#666">Generated from CSWDO Case Management System on ${escPrint(new Date().toLocaleString('en-PH'))}</p><button onclick="window.print()">Print</button></body></html>`);
+  win.document.close();win.focus();setTimeout(()=>win.print(),400);
+}
 async function deleteDatabaseCase(id,number){if(!confirm('Delete '+number+'? This should only be used for incorrect/duplicate records.'))return;const {error}=await supabaseClient.rpc('delete_case',{p_case_id:id,p_case_number:number,p_reason:'User requested deletion'});if(error){toast(error.message);return}toast('Case deleted');await refreshCaseData();}
 function openHistoricalImport(){document.getElementById('historicalImportModal').style.display='grid';document.getElementById('historicalFile').value='';document.getElementById('historicalCsv').value='';document.getElementById('importPreview').style.display='none';}function closeHistoricalImport(){document.getElementById('historicalImportModal').style.display='none';}
 async function readHistoricalRows(){const file=document.getElementById('historicalFile').files[0];if(file){const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''});}const csv=document.getElementById('historicalCsv').value.trim();return csv?parseCsv(csv):[];}
